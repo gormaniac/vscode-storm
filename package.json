@@ -4,10 +4,19 @@
   "description": "Highlighting, lint, completion and hover docs for the Synapse Storm query language.",
   "version": "0.1.0",
   "publisher": "gormo",
-  "license": "UNLICENSED",
+  "license": "MIT",
+  "icon": "images/icon.png",
+  "galleryBanner": {
+    "color": "#17178F",
+    "theme": "dark"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/gormaniac/vscode-storm.git"
+  },
+  "homepage": "https://github.com/gormaniac/vscode-storm#readme",
+  "bugs": {
+    "url": "https://github.com/gormaniac/vscode-storm/issues"
   },
   "engines": {
     "vscode": "^1.85.0"
@@ -20,7 +29,10 @@
     "synapse",
     "storm",
     "vertex",
-    "cortex"
+    "cortex",
+    "cti",
+    "threat intelligence",
+    "lint"
   ],
   "main": "./extension.js",
   "activationEvents": [],
@@ -57,6 +69,11 @@
     ],
     "commands": [
       {
+        "command": "storm.selectPython",
+        "title": "Select Python...",
+        "category": "Storm"
+      },
+      {
         "command": "storm.connectCortex",
         "title": "Connect to Cortex...",
         "category": "Storm"
@@ -83,7 +100,7 @@
         "storm.pythonPath": {
           "type": "string",
           "default": "",
-          "markdownDescription": "The Python which runs the language server. It needs `synapse` installed. Empty means `python3` on the PATH.",
+          "markdownDescription": "The Python which runs the language server. It needs `synapse` installed. Empty means `python3` on the PATH. `~` is your home folder. **Storm: Select Python...** finds one for you.",
           "scope": "machine-overridable"
         },
         "storm.lint.enabled": {

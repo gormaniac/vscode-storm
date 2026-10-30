@@ -5,6 +5,7 @@
 //
 // STORM_PYTHON must have synapse installed (default: python3).
 
+const os = require('os');
 const path = require('path');
 const assert = require('assert');
 const Module = require('module');
@@ -40,6 +41,7 @@ const commands = {};
 const handlers = {};
 const providers = {};
 const diagnostics = new Map();
+const warnings = [];
 const config = {pythonPath: process.env.STORM_PYTHON || 'python3', 'lint.enabled': true, 'lint.delay': 0};
 
 const vscode = {
@@ -79,6 +81,7 @@ const vscode = {
         createOutputChannel: () => ({append: (s) => process.env.DEBUG && process.stderr.write(s), appendLine: (s) => process.env.DEBUG && console.error(s), show() {}, dispose() {}}),
         createStatusBarItem: () => ({show() {}, dispose() {}}),
         showErrorMessage: async (m) => { console.error('showErrorMessage:', m); },
+        showWarningMessage: async (m) => { warnings.push(m); },
     },
     commands: {
         registerCommand: (name, fn) => { commands[name] = fn; return {dispose() {}}; },
@@ -189,6 +192,39 @@ const tests = {
         assert.match(await hover('inet:fqdn | lim‸it 10'), /limit\s+command/);
         assert.match(await hover('$lib.str.jo‸in(",", $x)'), /join\(/);
         assert.strictEqual(await hover('$x = "inet:fq‸dn"'), null);
+    },
+
+    // these restart the server, so they run last
+    async 'says when the Python has no synapse, or does not run'() {
+        const saved = config.pythonPath;
+        try {
+            warnings.length = 0;
+            config.pythonPath = '/usr/bin/python3';
+            await commands['storm.restartServer']();
+            assert.match(warnings.join('\n'), /does not have synapse installed/);
+
+            warnings.length = 0;
+            config.pythonPath = '/nonexistent/python';
+            await commands['storm.restartServer']();
+            assert.match(warnings.join('\n'), /Could not run \/nonexistent\/python/);
+        } finally {
+            config.pythonPath = saved;
+        }
+    },
+
+    async 'expands ~ in storm.pythonPath'() {
+        const saved = config.pythonPath;
+        const home = os.homedir();
+        if (!saved.startsWith(home + path.sep)) return;
+        try {
+            config.pythonPath = '~' + saved.slice(home.length);
+            warnings.length = 0;
+            await commands['storm.restartServer']();
+            assert.deepStrictEqual(warnings, []);
+            assert((await complete('inet:fq‸')).includes('inet:fqdn'));
+        } finally {
+            config.pythonPath = saved;
+        }
     },
 };
 

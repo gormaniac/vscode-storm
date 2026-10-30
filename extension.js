@@ -6,6 +6,8 @@
 // of this. There are no npm dependencies: only the vscode API and Node built-ins.
 
 const vscode = require('vscode');
+const os = require('os');
+const fs = require('fs');
 const path = require('path');
 const cp = require('child_process');
 
@@ -21,6 +23,22 @@ const UNIVERSAL = [
 const KEYWORDS = ['if', 'elif', 'else', 'for', 'while', 'switch', 'try', 'catch', 'break', 'continue',
     'return', 'emit', 'stop', 'function', 'init', 'fini', 'empty', 'and', 'or', 'not', 'in', 'as',
     'true', 'false', 'null', 'yield', 'reverse'];
+
+// ---------------------------------------------------------------------- python
+
+// the configured Python, with ~ expanded
+function pythonPath() {
+    const python = vscode.workspace.getConfiguration('storm').get('pythonPath') || 'python3';
+    return python.replace(/^~(?=$|[\\/])/, os.homedir());
+}
+
+// the synapse version a Python has, or null if it has none (or does not run)
+function synapseVersion(python) {
+    return new Promise((resolve) => {
+        cp.execFile(python, ['-c', 'import synapse.lib.version as v; print(v.verstring)'], {timeout: 15000},
+            (err, stdout) => resolve(err ? null : stdout.trim()));
+    });
+}
 
 // ---------------------------------------------------------------------- the language server
 
@@ -49,8 +67,7 @@ class Server {
 
     async _start() {
         this.stopping = false;
-        const cfg = vscode.workspace.getConfiguration('storm');
-        const python = cfg.get('pythonPath') || 'python3';
+        const python = pythonPath();
         const script = path.join(this.context.extensionPath, 'server', 'stormls.py');
         const args = [script];
         const cortex = await this.context.secrets.get(SECRET_CORTEX);
@@ -66,6 +83,7 @@ class Server {
 
         return new Promise((resolve, reject) => {
             let buf = '';
+            let stderr = '';
             proc.stdout.setEncoding('utf8');
             proc.stdout.on('data', (chunk) => {
                 buf += chunk;
@@ -91,10 +109,14 @@ class Server {
                 }
             });
             proc.stderr.setEncoding('utf8');
-            proc.stderr.on('data', (chunk) => this.output.append(chunk));
+            proc.stderr.on('data', (chunk) => {
+                this.output.append(chunk);
+                if (!this.info) stderr = (stderr + chunk).slice(-4000);
+            });
             proc.on('error', (err) => {
                 this.output.appendLine(`could not start ${python}: ${err.message}`);
-                reject(err);
+                if (this.proc === proc) this.proc = null;
+                reject(Object.assign(new Error(`Could not run ${python}.`), {code: 'NoPython'}));
             });
             proc.on('exit', (code, signal) => {
                 if (this.proc !== proc) return;
@@ -102,6 +124,10 @@ class Server {
                 for (const req of this.pending.values()) req.reject(new Error('The Storm language server exited.'));
                 this.pending.clear();
                 const err = new Error(`The Storm language server exited (${signal || code}). See the Storm output.`);
+                if (!this.info && /No module named '?synapse/.test(stderr)) {
+                    err.code = 'NoSynapse';
+                    err.message = `${python} does not have synapse installed.`;
+                }
                 reject(err);
                 if (this.stopping) return;
                 this.onState.fire({state: 'error', mesg: err.message});
@@ -508,11 +534,17 @@ function activate(context) {
         status.show();
     });
 
-    const start = () => server.start().catch(async (err) => {
-        const pick = await vscode.window.showErrorMessage(
-            `Storm: the language server did not start (${err.message}). It needs a Python with synapse installed.`,
-            'Set Python Path', 'Show Output');
-        if (pick === 'Set Python Path') vscode.commands.executeCommand('workbench.action.openSettings', 'storm.pythonPath');
+    // a failed start says why once per session, unless the user asked for the (re)start
+    let told = false;
+    const start = (asked = false) => server.start().catch(async (err) => {
+        if (told && !asked) return;
+        told = true;
+        const why = {
+            NoPython: `Storm: ${err.message} Lint, completion and hover need a Python with synapse installed.`,
+            NoSynapse: `Storm: ${err.message} Lint, completion and hover need it (pip install synapse).`,
+        }[err.code] || `Storm: the language server did not start. ${err.message}`;
+        const pick = await vscode.window.showWarningMessage(why, 'Select Python...', 'Show Output');
+        if (pick === 'Select Python...') vscode.commands.executeCommand('storm.selectPython');
         if (pick === 'Show Output') output.show();
     });
 
@@ -526,10 +558,11 @@ function activate(context) {
         vscode.workspace.onDidChangeTextDocument((e) => linter.schedule(e.document)),
         vscode.workspace.onDidCloseTextDocument((doc) => linter.forget(doc)),
         vscode.workspace.onDidChangeConfiguration((e) => {
-            if (e.affectsConfiguration('storm.pythonPath')) server.restart().catch(() => {});
+            if (e.affectsConfiguration('storm.pythonPath')) { server.stop(); start(true); }
             else if (e.affectsConfiguration('storm.lint')) linter.lintAll();
         }),
-        vscode.commands.registerCommand('storm.restartServer', () => { server.stop(); return start(); }),
+        vscode.commands.registerCommand('storm.restartServer', () => { server.stop(); return start(true); }),
+        vscode.commands.registerCommand('storm.selectPython', () => selectPython()),
         vscode.commands.registerCommand('storm.showOutput', () => output.show()),
         vscode.commands.registerCommand('storm.connectCortex', async () => {
             const url = await vscode.window.showInputBox({
@@ -542,18 +575,19 @@ function activate(context) {
             if (!url) return;
             await context.secrets.store(SECRET_CORTEX, url.trim());
             server.stop();
-            return start();
+            return start(true);
         }),
         vscode.commands.registerCommand('storm.useTempCortex', async () => {
             await context.secrets.delete(SECRET_CORTEX);
             server.stop();
-            return start();
+            return start(true);
         }),
         vscode.commands.registerCommand('storm.menu', async () => {
             const remote = !!(await context.secrets.get(SECRET_CORTEX));
             const picks = [
                 {label: '$(plug) Connect to Cortex...', command: 'storm.connectCortex'},
                 remote ? {label: '$(beaker) Use a temporary Cortex (core model only)', command: 'storm.useTempCortex'} : null,
+                {label: '$(symbol-misc) Select Python...', command: 'storm.selectPython'},
                 {label: '$(refresh) Restart language server', command: 'storm.restartServer'},
                 {label: '$(output) Show output', command: 'storm.showOutput'},
             ].filter(Boolean);
@@ -563,6 +597,49 @@ function activate(context) {
     );
 
     start();
+}
+
+// Pythons worth offering: the current setting, python3 on the PATH, the Python extension's default,
+// and virtual environments in the workspace folders
+function pythonCandidates() {
+    const found = [pythonPath(), 'python3'];
+    const pyDefault = vscode.workspace.getConfiguration('python').get('defaultInterpreterPath');
+    if (pyDefault && pyDefault !== 'python') found.push(pyDefault.replace(/^~(?=$|[\\/])/, os.homedir()));
+    const bin = process.platform === 'win32' ? path.join('Scripts', 'python.exe') : path.join('bin', 'python');
+    for (const folder of vscode.workspace.workspaceFolders || []) {
+        for (const venv of ['.venv', 'venv', 'env']) {
+            const exe = path.join(folder.uri.fsPath, venv, bin);
+            if (fs.existsSync(exe)) found.push(exe);
+        }
+    }
+    return [...new Set(found)];
+}
+
+async function selectPython() {
+    const browse = {label: '$(folder-opened) Browse...', browse: true};
+    const pick = await vscode.window.showQuickPick((async () => {
+        const items = await Promise.all(pythonCandidates().map(async (python) => {
+            const version = await synapseVersion(python);
+            return {label: python, description: version ? `synapse ${version}` : 'no synapse', python, ok: !!version};
+        }));
+        // the ones with synapse first
+        items.sort((a, b) => b.ok - a.ok);
+        return [...items, browse];
+    })(), {title: 'Select the Python which runs the Storm language server (it needs synapse)', placeHolder: 'Looking for Pythons...'});
+    if (!pick) return;
+
+    let python = pick.python;
+    if (pick.browse) {
+        const uris = await vscode.window.showOpenDialog({canSelectMany: false, openLabel: 'Use this Python', title: 'Select a Python executable'});
+        if (!uris?.length) return;
+        python = uris[0].fsPath;
+        if (!await synapseVersion(python)) {
+            const go = await vscode.window.showWarningMessage(`${python} does not have synapse installed (or does not run).`, 'Use It Anyway');
+            if (go !== 'Use It Anyway') return;
+        }
+    }
+    // the configuration change restarts the server
+    await vscode.workspace.getConfiguration('storm').update('pythonPath', python, vscode.ConfigurationTarget.Global);
 }
 
 function deactivate() {}

@@ -1,4 +1,9 @@
-test/*
-*__pycache__*
+.github/**
+test/**
+scripts/**
+images/logo.png
+**/__pycache__/**
 .gitignore
 *.vsix
+node_modules/**
+package-lock.json

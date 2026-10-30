@@ -2,22 +2,28 @@
 //
 //     ./test/node test/grammar.test.js
 //
-// vscode-textmate and vscode-oniguruma come from the installed VS Code (VSCODE_APP to override),
-// so there is nothing to npm install.
+// vscode-textmate and vscode-oniguruma come from the installed VS Code (VSCODE_APP to override), so there
+// is nothing to npm install. Without VS Code (in CI) they come from node_modules:
+// npm install --no-save vscode-textmate vscode-oniguruma
 
 const fs = require('fs');
 const path = require('path');
 const assert = require('assert');
 
 const app = process.env.VSCODE_APP || '/Applications/Visual Studio Code.app/Contents/Resources/app';
-const tm = require(path.join(app, 'node_modules.asar', 'vscode-textmate'));
-const onig = require(path.join(app, 'node_modules.asar', 'vscode-oniguruma'));
+// the bundled copies are in an asar archive, which only Electron (VS Code's Node.js) can read
+const bundled = !!process.versions.electron && fs.existsSync(path.join(app, 'node_modules.asar'));
+const tm = require(bundled ? path.join(app, 'node_modules.asar', 'vscode-textmate') : 'vscode-textmate');
+const onig = require(bundled ? path.join(app, 'node_modules.asar', 'vscode-oniguruma') : 'vscode-oniguruma');
+const wasmPath = bundled
+    ? path.join(app, 'node_modules.asar.unpacked', 'vscode-oniguruma', 'release', 'onig.wasm')
+    : require.resolve('vscode-oniguruma/release/onig.wasm');
 
 const root = path.join(__dirname, '..');
 const grammarPath = path.join(root, 'syntaxes', 'storm.tmLanguage.json');
 
 async function loadGrammar() {
-    const wasm = fs.readFileSync(path.join(app, 'node_modules.asar.unpacked', 'vscode-oniguruma', 'release', 'onig.wasm')).buffer;
+    const wasm = fs.readFileSync(wasmPath).buffer;
     await onig.loadWASM(wasm);
     const registry = new tm.Registry({
         onigLib: Promise.resolve({

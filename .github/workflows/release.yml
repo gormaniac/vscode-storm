@@ -1,0 +1,55 @@
+name: Release
+
+# Push a tag matching package.json's version (v0.1.0) to test, package and publish.
+#
+# Secrets:
+#   VSCE_PAT  An Azure DevOps token with Marketplace (Manage) scope, for the Visual Studio Marketplace.
+#   OVSX_PAT  An Open VSX token (optional). Without it, Open VSX is skipped.
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  test:
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      OVSX_PAT: ${{ secrets.OVSX_PAT }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Check the tag matches package.json
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $version"
+            exit 1
+          fi
+          echo "VSIX=vscode-storm-$version.vsix" >> "$GITHUB_ENV"
+
+      - name: Package
+        run: npx --yes @vscode/vsce@3.2.1 package --out "$VSIX"
+
+      - name: Publish to the Visual Studio Marketplace
+        run: npx --yes @vscode/vsce@3.2.1 publish --packagePath "$VSIX"
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+
+      - name: Publish to Open VSX
+        if: env.OVSX_PAT != ''
+        run: npx --yes ovsx@0.10.1 publish "$VSIX"
+
+      - name: GitHub release
+        run: gh release create "$GITHUB_REF_NAME" "$VSIX" --title "$GITHUB_REF_NAME" --notes "See [CHANGELOG.md](CHANGELOG.md)."
+        env:
+          GH_TOKEN: ${{ github.token }}

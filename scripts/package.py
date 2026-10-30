@@ -1,5 +1,6 @@
 '''
-Build the .vsix without vsce (or node): a .vsix is a zip of the extension plus a manifest.
+Build a .vsix for local installs without vsce (or node): a .vsix is a zip of the extension plus a
+manifest. Releases are built and published by vsce in CI (.github/workflows/release.yml).
 
     python3 scripts/package.py          # writes vscode-storm-<version>.vsix
     code --install-extension vscode-storm-<version>.vsix
@@ -39,6 +40,7 @@ CONTENT_TYPES = '''<?xml version="1.0" encoding="utf-8"?>
   <Default Extension=".js" ContentType="application/javascript"/>
   <Default Extension=".py" ContentType="text/plain"/>
   <Default Extension=".md" ContentType="text/markdown"/>
+  <Default Extension=".png" ContentType="image/png"/>
   <Default Extension=".vsixmanifest" ContentType="text/xml"/>
 </Types>
 '''
@@ -51,7 +53,7 @@ def main():
         pkg = json.load(fd)
     with open(os.path.join(root, '.vscodeignore')) as fd:
         patterns = [line.strip() for line in fd if line.strip() and not line.startswith('#')]
-    patterns += ['.git/*', 'scripts/*', '*.vsix', '.DS_Store']
+    patterns += ['.git/*', '.vscodeignore', '*.vsix', '.DS_Store']
 
     out = os.path.join(root, f'{pkg["name"]}-{pkg["version"]}.vsix')
     with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as zf:
