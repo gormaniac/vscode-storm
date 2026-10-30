@@ -1,0 +1,250 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Storm",
+  "scopeName": "source.storm",
+  "patterns": [{"include": "#query"}],
+  "repository": {
+    "query": {
+      "patterns": [
+        {"include": "#comments"},
+        {"include": "#strings"},
+        {"include": "#function-def"},
+        {"include": "#edges"},
+        {"include": "#tags"},
+        {"include": "#lib"},
+        {"include": "#variables"},
+        {"include": "#command"},
+        {"include": "#options"},
+        {"include": "#forms"},
+        {"include": "#props"},
+        {"include": "#numbers"},
+        {"include": "#members"},
+        {"include": "#keywords"},
+        {"include": "#operators"},
+        {"include": "#blocks"},
+        {"include": "#punctuation"}
+      ]
+    },
+
+    "comments": {
+      "patterns": [
+        {"name": "comment.line.double-slash.storm", "match": "//.*$"},
+        {"name": "comment.block.storm", "begin": "/\\*", "end": "\\*/"}
+      ]
+    },
+
+    "strings": {
+      "patterns": [
+        {"name": "string.quoted.triple.storm", "begin": "'''", "end": "'''"},
+        {
+          "name": "string.quoted.double.storm",
+          "begin": "\"", "end": "\"|$",
+          "patterns": [{"name": "constant.character.escape.storm", "match": "\\\\(?:[\\\\\"'abfnrtv]|x[0-9a-fA-F]{2}|u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8}|[0-7]{1,3})"}]
+        },
+        {"name": "string.quoted.single.storm", "begin": "'", "end": "'|$"},
+        {
+          "name": "string.interpolated.storm",
+          "begin": "`", "end": "`",
+          "patterns": [
+            {"name": "constant.character.escape.storm", "match": "\\\\."},
+            {
+              "name": "meta.interpolation.storm",
+              "begin": "\\{", "end": "\\}",
+              "beginCaptures": {"0": {"name": "punctuation.definition.template-expression.begin.storm"}},
+              "endCaptures": {"0": {"name": "punctuation.definition.template-expression.end.storm"}},
+              "contentName": "meta.embedded.storm",
+              "patterns": [{"include": "#query"}]
+            }
+          ]
+        }
+      ]
+    },
+
+    "function-def": {
+      "match": "\\b(function)\\s+([A-Za-z_]\\w*)",
+      "captures": {
+        "1": {"name": "storage.type.function.storm"},
+        "2": {"name": "entity.name.function.storm"}
+      }
+    },
+
+    "edges": {
+      "comment": "Pivots, joins, walks and light edge edits: -> <- -+> <+- --> <-- -(verb)> <(verb)- +(verb)> <(verb)+ -(*)>",
+      "patterns": [
+        {
+          "match": "(-|<|\\+)(\\()\\s*([^()\\n]*?)\\s*(\\))(>|-|\\+)",
+          "captures": {
+            "1": {"name": "keyword.operator.edge.storm"},
+            "2": {"name": "keyword.operator.edge.storm"},
+            "3": {"patterns": [{"include": "#variables"}, {"include": "#strings"}, {"name": "entity.name.label.verb.storm", "match": "[\\w*.]+"}]},
+            "4": {"name": "keyword.operator.edge.storm"},
+            "5": {"name": "keyword.operator.edge.storm"}
+          }
+        },
+        {"name": "keyword.operator.pivot.storm", "match": "--?\\+?>|<\\+?--?"}
+      ]
+    },
+
+    "tags": {
+      "patterns": [
+        {
+          "match": "(#)((?:[\\w*]|\\.(?=[\\w*$])|\\$\\w+)*)(?:(:)(\\w+))?",
+          "captures": {
+            "1": {"name": "punctuation.definition.tag.storm"},
+            "0": {"name": "entity.name.tag.storm"},
+            "3": {"name": "punctuation.separator.tagprop.storm"},
+            "4": {"name": "variable.other.property.tagprop.storm"}
+          }
+        }
+      ]
+    },
+
+    "lib": {
+      "patterns": [
+        {
+          "match": "(\\$lib)((?:\\.\\w+)*?)(?:(\\.)(\\w+)(?=\\s*\\())?(?![\\w.])",
+          "captures": {
+            "1": {"name": "support.class.lib.storm"},
+            "2": {"name": "support.class.lib.storm"},
+            "3": {"name": "punctuation.accessor.storm"},
+            "4": {"name": "support.function.lib.storm"}
+          }
+        }
+      ]
+    },
+
+    "variables": {
+      "patterns": [
+        {"name": "variable.language.storm", "match": "\\$(?:node|path|auto)\\b"},
+        {
+          "match": "(\\$)(\\w+)(?=\\s*\\()",
+          "captures": {"1": {"name": "punctuation.definition.variable.storm"}, "2": {"name": "entity.name.function.storm"}}
+        },
+        {
+          "match": "(\\$)(\\w+)",
+          "name": "variable.other.storm",
+          "captures": {"1": {"name": "punctuation.definition.variable.storm"}}
+        }
+      ]
+    },
+
+    "command": {
+      "comment": "The first word after a pipe is a command, even on the next line.",
+      "begin": "\\|",
+      "beginCaptures": {"0": {"name": "keyword.operator.pipe.storm"}},
+      "end": "(?<=[\\w.])(?![\\w.])|(?=[^\\s\\w.])",
+      "patterns": [
+        {"include": "#comments"},
+        {"name": "support.function.command.storm", "match": "[A-Za-z_][\\w.]*"}
+      ]
+    },
+
+    "options": {
+      "comment": "--opt and -o. A colon after the word makes it a filter (-inet:fqdn), not an option.",
+      "name": "variable.parameter.option.storm",
+      "match": "(?<![\\w$)\\]])--?[A-Za-z][\\w-]*(?![\\w:-])"
+    },
+
+    "forms": {
+      "comment": "Forms and full props: inet:fqdn, inet:fqdn:zone, inet:fqdn.seen, inet:*",
+      "match": "(?<![\\w$:.#])([a-z_][\\w]*(?::(?:\\w+|\\*))+)(\\.\\w+)?(\\*)?",
+      "captures": {
+        "1": {"name": "entity.name.type.form.storm"},
+        "2": {"name": "variable.other.property.universal.storm"},
+        "3": {"name": "keyword.operator.glob.storm"}
+      }
+    },
+
+    "props": {
+      "patterns": [
+        {
+          "comment": "A relative prop (:zone, :asn::name) or a universal prop (.seen)",
+          "match": "(?<![\\w$)\\]}\"'`])(::?)([A-Za-z_][\\w:]*)",
+          "captures": {"1": {"name": "punctuation.definition.property.storm"}, "2": {"name": "variable.other.property.storm"}}
+        },
+        {
+          "match": "(?<![\\w$)\\]}\"'`])(\\.)([A-Za-z_]\\w*)",
+          "captures": {"1": {"name": "punctuation.definition.property.storm"}, "2": {"name": "variable.other.property.universal.storm"}}
+        },
+        {
+          "comment": ":$var",
+          "match": "(?<![\\w)\\]])(:)(?=\\$)",
+          "captures": {"1": {"name": "punctuation.definition.property.storm"}}
+        }
+      ]
+    },
+
+    "numbers": {
+      "patterns": [
+        {"name": "constant.numeric.hex.storm", "match": "\\b0[xX][0-9a-fA-F]+\\b"},
+        {"name": "constant.numeric.binary.storm", "match": "\\b0[bB][01]+\\b"},
+        {"name": "constant.numeric.decimal.storm", "match": "(?<![\\w.])-?\\d+(?:\\.\\d+)?(?:[eE][+-]?\\d+)?\\b"}
+      ]
+    },
+
+    "members": {
+      "comment": "$x.name and $x.method() after a variable, call or index",
+      "patterns": [
+        {
+          "match": "(?<=[\\w)\\]])(\\.)(\\w+)(?=\\s*\\()",
+          "captures": {"1": {"name": "punctuation.accessor.storm"}, "2": {"name": "entity.name.function.member.storm"}}
+        },
+        {
+          "match": "(?<=[\\w)\\]])(\\.)(\\w+)",
+          "captures": {"1": {"name": "punctuation.accessor.storm"}, "2": {"name": "variable.other.member.storm"}}
+        }
+      ]
+    },
+
+    "keywords": {
+      "patterns": [
+        {"name": "keyword.control.storm", "match": "\\b(?:if|elif|else|for|while|switch|try|catch|break|continue|return|emit|stop|yield)\\b"},
+        {"name": "keyword.control.block.storm", "match": "\\b(?:init|fini|empty)\\b(?=\\s*\\{)"},
+        {"name": "keyword.operator.word.storm", "match": "\\b(?:and|or|not|in|as)\\b"},
+        {"name": "keyword.other.storm", "match": "\\breverse\\b(?=\\s*\\()"},
+        {"name": "constant.language.storm", "match": "\\b(?:true|false|null)\\b"}
+      ]
+    },
+
+    "operators": {
+      "patterns": [
+        {"name": "keyword.operator.comparison.storm", "match": "\\*[A-Za-z]+=|\\*\\[[^\\]\\n]*\\]|[~^@?!<>=]=|<|>"},
+        {"name": "keyword.operator.assignment.storm", "match": "="},
+        {"name": "keyword.operator.filter.storm", "match": "(?<![\\w)\\]$])[+-]\\??(?=\\s*[#:.$({\\[A-Za-z*])"},
+        {"name": "keyword.operator.arithmetic.storm", "match": "\\*\\*|[+\\-*/%]"}
+      ]
+    },
+
+    "blocks": {
+      "patterns": [
+        {
+          "name": "meta.block.storm",
+          "begin": "\\{", "end": "\\}",
+          "beginCaptures": {"0": {"name": "punctuation.section.block.begin.storm"}},
+          "endCaptures": {"0": {"name": "punctuation.section.block.end.storm"}},
+          "patterns": [{"include": "#query"}]
+        },
+        {
+          "name": "meta.edit.storm",
+          "begin": "\\[", "end": "\\]",
+          "beginCaptures": {"0": {"name": "punctuation.section.edit.begin.storm"}},
+          "endCaptures": {"0": {"name": "punctuation.section.edit.end.storm"}},
+          "patterns": [{"include": "#query"}]
+        },
+        {
+          "name": "meta.group.storm",
+          "begin": "\\(", "end": "\\)",
+          "beginCaptures": {"0": {"name": "punctuation.section.parens.begin.storm"}},
+          "endCaptures": {"0": {"name": "punctuation.section.parens.end.storm"}},
+          "patterns": [{"include": "#query"}]
+        }
+      ]
+    },
+
+    "punctuation": {
+      "patterns": [
+        {"name": "punctuation.separator.comma.storm", "match": ","}
+      ]
+    }
+  }
+}

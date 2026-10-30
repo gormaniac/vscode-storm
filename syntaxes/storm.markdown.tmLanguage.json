@@ -1,0 +1,27 @@
+{
+  "comment": "Highlights ```storm fenced code blocks in Markdown.",
+  "scopeName": "markdown.storm.codeblock",
+  "injectionSelector": "L:text.html.markdown",
+  "patterns": [{"include": "#storm-code-block"}],
+  "repository": {
+    "storm-code-block": {
+      "begin": "(^|\\G)(\\s*)(`{3,}|~{3,})\\s*(?i:(storm)(\\s+[^`~]*)?$)",
+      "beginCaptures": {
+        "3": {"name": "punctuation.definition.markdown"},
+        "4": {"name": "fenced_code.block.language.markdown"},
+        "5": {"name": "fenced_code.block.language.attributes.markdown"}
+      },
+      "end": "(^|\\G)(\\2|\\s{0,3})(\\3)\\s*$",
+      "endCaptures": {"3": {"name": "punctuation.definition.markdown"}},
+      "name": "markup.fenced_code.block.markdown",
+      "patterns": [
+        {
+          "begin": "(^|\\G)(\\s*)(.*)",
+          "while": "(^|\\G)(?!\\s*([`~]{3,})\\s*$)",
+          "contentName": "meta.embedded.block.storm",
+          "patterns": [{"include": "source.storm"}]
+        }
+      ]
+    }
+  }
+}

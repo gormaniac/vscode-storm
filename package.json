@@ -1,0 +1,110 @@
+{
+  "name": "vscode-storm",
+  "displayName": "Storm (Synapse)",
+  "description": "Highlighting, lint, completion and hover docs for the Synapse Storm query language.",
+  "version": "0.1.0",
+  "publisher": "gormo",
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gormaniac/vscode-storm.git"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Linters"
+  ],
+  "keywords": [
+    "synapse",
+    "storm",
+    "vertex",
+    "cortex"
+  ],
+  "main": "./extension.js",
+  "activationEvents": [],
+  "contributes": {
+    "languages": [
+      {
+        "id": "storm",
+        "aliases": [
+          "Storm",
+          "storm"
+        ],
+        "extensions": [
+          ".storm"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "storm",
+        "scopeName": "source.storm",
+        "path": "./syntaxes/storm.tmLanguage.json"
+      },
+      {
+        "scopeName": "markdown.storm.codeblock",
+        "path": "./syntaxes/storm.markdown.tmLanguage.json",
+        "injectTo": [
+          "text.html.markdown"
+        ],
+        "embeddedLanguages": {
+          "meta.embedded.block.storm": "storm"
+        }
+      }
+    ],
+    "commands": [
+      {
+        "command": "storm.connectCortex",
+        "title": "Connect to Cortex...",
+        "category": "Storm"
+      },
+      {
+        "command": "storm.useTempCortex",
+        "title": "Use a Temporary Cortex",
+        "category": "Storm"
+      },
+      {
+        "command": "storm.restartServer",
+        "title": "Restart Language Server",
+        "category": "Storm"
+      },
+      {
+        "command": "storm.showOutput",
+        "title": "Show Output",
+        "category": "Storm"
+      }
+    ],
+    "configuration": {
+      "title": "Storm",
+      "properties": {
+        "storm.pythonPath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "The Python which runs the language server. It needs `synapse` installed. Empty means `python3` on the PATH.",
+          "scope": "machine-overridable"
+        },
+        "storm.lint.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Check Storm as you type."
+        },
+        "storm.lint.delay": {
+          "type": "number",
+          "default": 250,
+          "minimum": 0,
+          "description": "Milliseconds to wait after typing stops before checking."
+        }
+      }
+    },
+    "configurationDefaults": {
+      "[storm]": {
+        "editor.tabSize": 4,
+        "editor.insertSpaces": true,
+        "editor.wordBasedSuggestions": "off"
+      }
+    }
+  }
+}

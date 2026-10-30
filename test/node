@@ -1,0 +1,8 @@
+#!/bin/sh
+# Run a script with the Node.js inside VS Code, so the tests need no Node install.
+# Uses `node` instead when it is on the PATH and VSCODE_APP is not set.
+if [ -z "$VSCODE_APP" ] && command -v node >/dev/null 2>&1; then
+    exec node "$@"
+fi
+APP="${VSCODE_APP:-/Applications/Visual Studio Code.app/Contents/Resources/app}"
+exec env ELECTRON_RUN_AS_NODE=1 "$APP/../../MacOS/Code" "$@"
