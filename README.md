@@ -1,11 +1,11 @@
 <p align="center"><img src="https://raw.githubusercontent.com/gormaniac/vscode-storm/main/images/icon.png" width="128" alt=""></p>
 
-# Storm for VS Code
+# Synapse Storm for VS Code
 
 Highlighting, lint, completion and hover docs for the [Synapse](https://github.com/vertexproject/synapse)
 Storm query language, in `.storm` files and in ```` ```storm ```` blocks in Markdown.
 
-The highlighting and lint rules are adapted from NeuralUI's Storm editor.
+Includes a language server using a live Cortex (default local or production with live installed packages) to provide completion and documentation on hover features.
 
 ## How it works
 
